@@ -1,69 +1,35 @@
 # Copyright (c) 2025 @KSKOP69. All rights reserved.
 # Use of this source code is governed by a proprietary license.
 
-import asyncio
 import json
 import os
-from urllib.parse import urlparse
+import stat
 
-import aiohttp
 import aiofiles
 
-import config
 from ..logging import LOGGER
 
-COOKIE_PATH = os.path.join("cookies", "cookies.txt")
-COOKIE_SOURCE = "https://batbin.me/raw/"
-
-
-async def fetch_content(session: aiohttp.ClientSession, url: str) -> str:
-    try:
-        async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
-            response.raise_for_status()
-            return await response.text()
-    except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
-        LOGGER(__name__).error("Error fetching cookies: %s", exc)
-        return ""
-
-
-def _batbin_raw_url(value: str) -> str:
-    value = value.strip()
-    if not value:
-        return ""
-    parsed = urlparse(value)
-    if parsed.netloc.lower().endswith("batbin.me"):
-        paste_id = parsed.path.rstrip("/").split("/")[-1]
-    else:
-        paste_id = value.rstrip("/").split("/")[-1].split("?")[0]
-    return f"{COOKIE_SOURCE}{paste_id}" if paste_id else ""
-
-
-def _netscape_cookie_line(cookie: dict) -> str:
-    domain = str(cookie.get("domain") or cookie.get("host") or "").strip()
-    name = str(cookie.get("name") or "").strip()
-    value = str(cookie.get("value") or "")
-    path = str(cookie.get("path") or "/")
-    if not domain or not name:
-        return ""
-    include_subdomains = "TRUE" if domain.startswith(".") or cookie.get("includeSubdomains") else "FALSE"
-    secure = "TRUE" if cookie.get("secure") else "FALSE"
-    expires = cookie.get("expirationDate", cookie.get("expires", cookie.get("expiry", 0)))
-    try:
-        expires = int(float(expires or 0))
-    except (TypeError, ValueError):
-        expires = 0
-    # Netscape cookie files use -1 for session cookies.
-    if cookie.get("session") or expires < 0:
-        expires = 0
-    return "\t".join((domain, include_subdomains, path, secure, str(expires), name, value))
+# Render Secret Files are read-only. Normalize the private source into /tmp,
+# never into a tracked repository path.
+COOKIE_SOURCE_ENV = "COOKIE_FILE"
+COOKIE_OUTPUT_PATH = "/tmp/alexamusic-cookies.txt"
 
 
 def normalize_cookies(content: str) -> str:
     content = content.lstrip("\ufeff").strip()
     if not content:
-        raise ValueError("The cookie source is empty.")
+        raise ValueError("The cookie file is empty.")
+
     if content.startswith("# Netscape HTTP Cookie File") or content.startswith("# HTTP Cookie File"):
-        return content.rstrip() + "\n"
+        lines = [line for line in content.splitlines() if line.strip()]
+        cookie_lines = [
+            line for line in lines
+            if not line.lstrip().startswith("#") and len(line.split("\t")) >= 7
+        ]
+        if not cookie_lines:
+            raise ValueError("Netscape cookie file contains no valid cookie records.")
+        return "\n".join(lines) + "\n"
+
     try:
         payload = json.loads(content)
     except json.JSONDecodeError as exc:
@@ -76,48 +42,55 @@ def normalize_cookies(content: str) -> str:
 
     lines = ["# Netscape HTTP Cookie File"]
     for cookie in payload:
-        if isinstance(cookie, dict):
-            line = _netscape_cookie_line(cookie)
-            if line:
-                lines.append(line)
+        if not isinstance(cookie, dict):
+            continue
+        domain = str(cookie.get("domain") or cookie.get("host") or "").strip()
+        name = str(cookie.get("name") or "").strip()
+        value = str(cookie.get("value") or "")
+        path = str(cookie.get("path") or "/")
+        if not domain or not name:
+            continue
+        include_subdomains = "TRUE" if domain.startswith(".") or cookie.get("includeSubdomains") else "FALSE"
+        secure = "TRUE" if cookie.get("secure") else "FALSE"
+        expires = cookie.get("expirationDate", cookie.get("expires", cookie.get("expiry", 0)))
+        try:
+            expires = int(float(expires or 0))
+        except (TypeError, ValueError):
+            expires = 0
+        if cookie.get("session") or expires < 0:
+            expires = 0
+        lines.append("\t".join((domain, include_subdomains, path, secure, str(expires), name, value)))
+
     if len(lines) == 1:
         raise ValueError("JSON contained no valid cookies.")
     return "\n".join(lines) + "\n"
 
 
-async def save_file(content: str, file_path: str) -> str:
-    try:
-        directory = os.path.dirname(file_path)
-        if directory:
-            os.makedirs(directory, exist_ok=True)
-        async with aiofiles.open(file_path, "w", encoding="utf-8", newline="") as file:
-            await file.write(content)
-        return file_path
-    except OSError as exc:
-        LOGGER(__name__).error("Error saving cookies file: %s", exc)
-        return ""
+def cookiefile() -> str | None:
+    """Return the private normalized cookie path, or None when not configured."""
+    return COOKIE_OUTPUT_PATH if os.path.isfile(COOKIE_OUTPUT_PATH) and os.path.getsize(COOKIE_OUTPUT_PATH) > 0 else None
 
 
 async def save_cookies():
-    source = _batbin_raw_url(str(config.COOKIES or ""))
-    if not source:
-        LOGGER(__name__).warning("COOKIES is not configured; keeping any existing cookies file.")
+    source_path = str(os.getenv(COOKIE_SOURCE_ENV, "") or "").strip()
+    if not source_path:
+        LOGGER(__name__).warning(
+            "COOKIE_FILE is not configured; YouTube will run without authentication cookies."
+        )
         return
 
-    async with aiohttp.ClientSession() as session:
-        content = await fetch_content(session, source)
-    if not content:
-        LOGGER(__name__).error("Could not download the configured cookie source.")
+    if not os.path.isfile(source_path):
+        LOGGER(__name__).error("COOKIE_FILE does not point to a readable file.")
         return
 
     try:
+        async with aiofiles.open(source_path, "r", encoding="utf-8") as file:
+            content = await file.read()
         normalized = normalize_cookies(content)
-    except ValueError as exc:
-        LOGGER(__name__).error("Invalid YouTube cookies: %s", exc)
-        return
-
-    saved_path = await save_file(normalized, COOKIE_PATH)
-    if saved_path and os.path.getsize(saved_path) > 0:
-        LOGGER(__name__).info("Valid Netscape cookies saved to %s.", saved_path)
-    else:
-        LOGGER(__name__).error("Failed to save cookies file.")
+        os.makedirs(os.path.dirname(COOKIE_OUTPUT_PATH), exist_ok=True)
+        async with aiofiles.open(COOKIE_OUTPUT_PATH, "w", encoding="utf-8", newline="") as file:
+            await file.write(normalized)
+        os.chmod(COOKIE_OUTPUT_PATH, stat.S_IRUSR | stat.S_IWUSR)
+        LOGGER(__name__).info("Private YouTube cookies loaded from COOKIE_FILE.")
+    except (OSError, UnicodeError, ValueError) as exc:
+        LOGGER(__name__).error("Could not load YouTube cookies: %s", exc)
