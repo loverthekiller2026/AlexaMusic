@@ -13,6 +13,7 @@ import asyncio
 import os
 import re
 import json
+import shlex
 from typing import Union
 
 from yt_dlp import YoutubeDL
@@ -21,15 +22,23 @@ from pyrogram.types import Message
 from youtubesearchpython.__future__ import VideosSearch
 
 import config
+from AlexaMusic.core.cookies import cookiefile as _cookiefile
 from AlexaMusic.utils.database import is_on_off
 from AlexaMusic.utils.formatters import time_to_seconds
 
 
 def cookiefile():
-    cookie_dir = "cookies"
-    cookies_files = [f for f in os.listdir(cookie_dir) if f.endswith(".txt")]
+    return _cookiefile()
 
-    return os.path.join(cookie_dir, cookies_files[0])
+
+def cookie_opts():
+    path = cookiefile()
+    return {"cookiefile": path} if path else {}
+
+
+def cookie_args():
+    path = cookiefile()
+    return ["--cookies", path] if path else []
 
 
 async def shell_cmd(cmd):
@@ -136,8 +145,7 @@ class YouTubeAPI:
             link = link.split("&")[0]
         proc = await asyncio.create_subprocess_exec(
             "yt-dlp",
-            "--cookies",
-            cookiefile(),
+            *cookie_args(),
             "-g",
             "-f",
             "best[height<=?720][width<=?1280]",
@@ -153,9 +161,12 @@ class YouTubeAPI:
             link = self.listbase + link
         if "&" in link:
             link = link.split("&")[0]
+        cookie_option = ""
+        if cookiefile():
+            cookie_option = f" --cookies {shlex.quote(cookiefile())}"
         cmd = (
-            f"yt-dlp -i --compat-options no-youtube-unavailable-videos "
-            f"--get-id --flat-playlist --playlist-end {limit} --skip-download '{link}' "
+            f"yt-dlp -i{cookie_option} --compat-options no-youtube-unavailable-videos "
+            f"--get-id --flat-playlist --playlist-end {limit} --skip-download {shlex.quote(link)} "
             f"2>/dev/null"
         )
         playlist = await shell_cmd(cmd)
@@ -183,7 +194,7 @@ class YouTubeAPI:
             "vidid": vidid,
             "duration_min": duration_min,
             "thumb": thumbnail,
-            "cookiefile": cookiefile(),
+            **cookie_opts(),
         }
         return track_details, vidid
 
@@ -347,8 +358,7 @@ class YouTubeAPI:
             else:
                 proc = await asyncio.create_subprocess_exec(
                     "yt-dlp",
-                    "--cookies",
-                    cookiefile(),
+                    *cookie_args(),
                     "-g",
                     "-f",
                     "best[height<=?720][width<=?1280]",
