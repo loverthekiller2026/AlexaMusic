@@ -230,7 +230,7 @@ class YouTubeAPI:
                             "ext": format["ext"],
                             "format_note": format["format_note"],
                             "yturl": link,
-                            "cookiefile": cookiefile(),
+                            **cookie_opts(),
                         }
                     )
         return formats_available, link
@@ -270,7 +270,7 @@ class YouTubeAPI:
 
         def audio_dl():
             ydl_optssx = {
-                "cookiefile": cookiefile(),
+                **cookie_opts(),
                 "format": "bestaudio[ext=m4a]/bestaudio/best",
                 "outtmpl": "downloads/%(id)s.%(ext)s",
                 "geo_bypass": True,
@@ -288,7 +288,7 @@ class YouTubeAPI:
 
         def video_dl():
             ydl_optssx = {
-                "cookiefile": cookiefile(),
+                **cookie_opts(),
                 "format": "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4][height<=1080]",
                 "outtmpl": "downloads/%(id)s.%(ext)s",
                 "geo_bypass": True,
@@ -314,7 +314,7 @@ class YouTubeAPI:
                 "nocheckcertificate": True,
                 "quiet": True,
                 "no_warnings": True,
-                "cookiefile": cookiefile(),
+                **cookie_opts(),
                 "prefer_ffmpeg": True,
                 "merge_output_format": "mp4",
             }
@@ -330,7 +330,7 @@ class YouTubeAPI:
                 "nocheckcertificate": True,
                 "quiet": True,
                 "no_warnings": True,
-                "cookiefile": cookiefile(),
+                **cookie_opts(),
                 "prefer_ffmpeg": True,
                 "postprocessors": [
                     {
