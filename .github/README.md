@@ -29,6 +29,7 @@
 >
 >### 🔹 Need Help ? Join our Support Group for Assistance!!
 
+[![Render](https://img.shields.io/badge/Deploy-Render-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://render.com/deploy?repo=https://github.com/loverthekiller2026/AlexaMusic)
 
 <h1 align="center"><b>😂 ᴠɪᴇᴡ ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs 😂</b></h1>
 <br>
