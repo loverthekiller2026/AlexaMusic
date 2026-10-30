@@ -1,52 +1,24 @@
-# **📜 Using Cookies**
+# YouTube Cookies (Private Render Secret File)
 
-### **🔹 Method: Netscape HTTP Cookie File**
-To authenticate requests using browser cookies, follow these steps:
+AlexaMusic reads YouTube cookies from a private file at runtime. Do not commit cookies to this repository and do not upload them to public paste websites.
 
-> [!IMPORTANT]
-> - Always use a **secondary account** for generating cookies.
-> - Once cookies are uploaded, **do not log in again** on that account. It may invalidate the session.
+## Configure Render
 
----
+1. Export a YouTube cookie file in **Netscape HTTP Cookie File** format. It should start with:
+   `# Netscape HTTP Cookie File`
+2. In the Render Dashboard, open your AlexaMusic service and select **Environment**.
+3. Under **Secret Files**, choose **Add Secret File**.
+4. Set the filename to `cookies.txt`.
+5. Paste the complete Netscape cookie file into the contents field and save.
+6. Under **Environment Variables**, add:
+   `COOKIE_FILE=/etc/secrets/cookies.txt`
+7. Remove the old `COOKIES` variable. Save changes and let Render deploy the service.
 
-## **📌 Step 1: Export Cookies in Netscape Format**
-Use a browser extension to export cookies as a **`cookies.txt`** file in **Netscape HTTP format**:
+Render makes secret files available at `/etc/secrets/<filename>` at runtime. The application validates the file and creates a restricted-permission working copy in `/tmp`.
 
-### **🌐 Recommended Extensions:**  
-| Browser     | Extension         | Download Link                                                                                                      |  
-|-------------|-------------------|--------------------------------------------------------------------------------------------------------------------|  
-| **Chrome**  | `Get cookies.txt` | [Chrome Web Store](https://chromewebstore.google.com/detail/get-cookiestxt-clean/ahmnmhfbokciafffnknlekllgcnafnie) |  
-| **Firefox** | `cookies.txt`     | [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/)                                     |  
+## Security
 
-### **📥 How to Export:**
-1. Install the extension.
-2. Navigate to the YouTube.com in private/incognito tab and log in.
-3. Play a video for 1 minute.
-4. Click the extension icon and select **"Export cookies.txt"**.
-5. Save the file.
-
----
-
-## **📌 Step 2: Upload Cookies to a Paste Service**  
-Host your `cookies.txt` on a text-sharing service:  
-
-- **[BatBin](https://batbin.me)**
-
-### **📤 Upload Steps:**  
-1. Open the paste service.  
-2. Copy-paste the **entire content** of `cookies.txt`.  
-3. Click **"Create Paste"** and copy the URL.  
-
----
-
-## **📌 Step 3: Set the Environment Variable**  
-Add the paste URL to your **`COOKIES`** environment variable.  
-
-### **⚙️ Example:**  
-```env
-COOKIES=https://batbin.me/xyz012
-```  
-
----
-
-## **🎉 Enjoy using cookies!**
+- Never paste cookie contents into chat, logs, GitHub, or public paste services.
+- If cookies were previously committed to a public repository, treat them as exposed and revoke that Google session before generating a replacement.
+- Cookie files can expire. If YouTube still rejects a validly formatted file, generate a fresh export and replace the Render Secret File.
+- A correctly formatted cookie file does not guarantee YouTube will allow every request.
