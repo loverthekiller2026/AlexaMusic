@@ -18,7 +18,7 @@ requests
 speedtest-cli
 spotipy
 unidecode
-uvloop==0.21.0
+uvloop==0.23.0
 werkzeug
 yt-dlp[default]>=2026.3.17
 https://github.com/KurimuzonAkuma/pyrogram/archive/dev.zip
