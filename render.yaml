@@ -8,33 +8,21 @@ services:
     envVars:
       - key: API_ID
         sync: false
-
       - key: API_HASH
         sync: false
-
       - key: BOT_TOKEN
         sync: false
-
       - key: STRING_SESSION
         sync: false
-
-      - key: MONGO_DB_URL
+      - key: MONGO_DB_URI
         sync: false
-
       - key: OWNER_ID
         sync: false
-
       - key: LOG_GROUP_ID
         sync: false
-
       - key: MUSIC_BOT_NAME
         sync: false
-
       - key: PYTHON_VERSION
         value: 3.12.11
-
       - key: PORT
         value: "10000"
-
-      
-        
